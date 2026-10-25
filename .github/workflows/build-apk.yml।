@@ -1,11 +1,13 @@
 name: Build Family Connect APK
 
 on:
-  push:
-    paths:
-      - '.github/workflows/build-apk.yml'
-      - '*.zip'
   workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -21,23 +23,32 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Extract Android project
+      - name: Find and extract Android project
+        shell: bash
         run: |
           mkdir -p extracted
+
           ZIP_FILE=$(find . -maxdepth 1 -type f -iname '*.zip' | head -n 1)
+
           if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: No ZIP file found"
+            echo "ERROR: No ZIP file found in repository root."
             exit 1
           fi
+
           unzip -q "$ZIP_FILE" -d extracted
+
           GRADLEW=$(find extracted -type f -name gradlew | head -n 1)
+
           if [ -z "$GRADLEW" ]; then
-            echo "ERROR: Gradle wrapper not found in ZIP"
+            echo "ERROR: gradlew not found in ZIP."
             exit 1
           fi
-          echo "PROJECT_DIR=$(dirname "$GRADLEW")" >> "$GITHUB_ENV"
+
+          PROJECT_DIR=$(dirname "$GRADLEW")
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - name: Build debug APK
+        shell: bash
         run: |
           cd "$PROJECT_DIR"
           chmod +x gradlew
@@ -47,5 +58,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Family-Connect-APK
-          path: '**/build/outputs/apk/debug/*.apk'
+          path: extracted/**/build/outputs/apk/debug/*.apk
           if-no-files-found: error
